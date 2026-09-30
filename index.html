@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BallTok - Generador Pro V13 (Completo + Conversor MP4)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Motor FFmpeg para conversión en el navegador -->
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+    
+    <style>
+        body, html { 
+            margin: 0; 
+            padding: 0; 
+            width: 100%; 
+            height: 100%; 
+            overflow: hidden; 
+            background-color: #05050a; 
+            font-family: 'Inter', sans-serif; 
+        }
+        canvas { 
+            display: block; 
+            width: 100%; 
+            height: 100%; 
+        }
+        input[type=range] { 
+            -webkit-appearance: none; 
+            width: 100%; 
+            background: transparent; 
+        }
+        input[type=range]::-webkit-slider-thumb { 
+            -webkit-appearance: none; 
+            height: 16px; 
+            width: 16px; 
+            border-radius: 50%; 
+            background: #fff; 
+            cursor: pointer; 
+            margin-top: -6px; 
+        }
+        input[type=range]::-webkit-slider-runnable-track { 
+            width: 100%; 
+            height: 4px; 
+            cursor: pointer; 
+            background: #334155; 
+            border-radius: 2px; 
+        }
+        input[type=color] { 
+            -webkit-appearance: none; 
+            border: none; 
+            width: 30px; 
+            height: 30px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            padding: 0; 
+            background: none; 
+        }
+        input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type=color]::-webkit-color-swatch { border: none; border-radius: 5px; }
+        select { 
+            background-color: #1f2937; 
+            color: white; 
+            border: 1px solid #374151; 
+            border-radius: 0.375rem; 
+            padding: 0.25rem; 
+            font-size: 0.875rem; 
+            outline: none; 
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+    </style>
+</head>
+<body class="text-white select-none">
+
+    <div id="ui-panel" class="absolute top-4 left-4 sm:top-6 sm:left-6 w-80 max-h-[90vh] overflow-y-auto bg-gray-900/90 backdrop-blur-md p-5 rounded-2xl border border-gray-700 shadow-2xl z-10 custom-scrollbar">
+        <h1 class="text-xl font-bold mb-1 text-white">BallTok Pro V13</h1>
+        <p class="text-[10px] text-green-400 mb-4 font-bold tracking-wide uppercase">Cámara Dinámica + Conversor MP4</p>
+        
+        <button id="generate-btn" class="w-full py-3 mb-4 bg-white text-black hover:bg-gray-200 rounded-lg font-bold transition-all active:scale-95 flex items-center justify-center gap-2">
+            <span>🎬 Grabar Video</span>
+        </button>
+
+        <div class="space-y-4">
+            <!-- Selector de Modo Global -->
+            <div class="p-3 bg-gray-800/50 rounded-lg border border-gray-700 space-y-4">
+                <h3 class="text-xs font-bold text-white uppercase tracking-wider">Modo de Juego</h3>
+                <select id="global-mode-select" class="w-full">
+                    <option value="classic">🟢 Clásico (Aros con Hueco)</option>
+                    <option value="closed">🔴 Aro Cerrado (Rastro Expansivo Arcoíris)</option>
+                </select>
+            </div>
+
+            <!-- Panel de Geometría (Ocultable en Modo Cerrado) -->
+            <div id="geometry-settings" class="p-3 bg-gray-800/50 rounded-lg border border-gray-700 space-y-4">
+                <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-wider">Geometría de Aros</h3>
+                
+                <div class="flex flex-col space-y-1">
+                    <span class="text-xs text-gray-300">Modo de Alineación</span>
+                    <select id="alignment-select" class="w-full">
+                        <option value="domino">🌀 Efecto Dominó</option>
+                        <option value="alternate">↔️ Alternante (Izq/Der)</option>
+                        <option value="sequential">⏳ Secuencial (Uno a Uno)</option>
+                        <option value="random">🔀 Aleatorio</option>
+                    </select>
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs text-gray-300 mb-1">
+                        <span>Cantidad de Aros (Máx 33)</span>
+                        <span id="count-val">15</span>
+                    </div>
+                    <input type="range" id="count-slider" min="3" max="33" step="1" value="15">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs text-gray-300 mb-1">
+                        <span>Apertura del Hueco</span>
+                        <span id="gap-val">35°</span>
+                    </div>
+                    <input type="range" id="gap-slider" min="10" max="180" step="1" value="35">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs text-gray-300 mb-1">
+                        <span>Radio Central (Inicio)</span>
+                        <span id="base-radius-val">50px</span>
+                    </div>
+                    <input type="range" id="base-radius-slider" min="10" max="400" step="5" value="50">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs text-gray-300 mb-1">
+                        <span>Separación entre Aros</span>
+                        <span id="spacing-val">30px</span>
+                    </div>
+                    <input type="range" id="spacing-slider" min="0" max="120" step="1" value="30">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs text-gray-300 mb-1">
+                        <span>Grosor de las Líneas</span>
+                        <span id="thickness-val">6px</span>
+                    </div>
+                    <input type="range" id="thickness-slider" min="1" max="30" step="1" value="6">
+                </div>
+
+                <div class="flex flex-col space-y-1">
+                    <span class="text-xs text-gray-300">Forma de las Puntas</span>
+                    <select id="linecap-select" class="w-full">
+                        <option value="round">Curvas</option>
+                        <option value="butt">Cuadradas</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="p-3 bg-gray-800/50 rounded-lg border border-gray-700 space-y-4">
+                <h3 class="text-xs font-bold text-yellow-400 uppercase tracking-wider">La Pelota</h3>
+                
+                <div id="ball-color-container" class="flex items-center justify-between">
+                    <span class="text-sm text-gray-300">Color de Pelota</span>
+                    <input type="color" id="ball-color" value="#ffffff">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs text-gray-300 mb-1">
+                        <span>Tamaño Inicial</span>
+                        <span id="ball-size-val">8px</span>
+                    </div>
+                    <input type="range" id="ball-size-slider" min="2" max="50" step="1" value="8">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs text-gray-300 mb-1">
+                        <span>Posición Inicial X</span>
+                        <span id="ball-x-val">0px</span>
+                    </div>
+                    <input type="range" id="ball-x-slider" min="-150" max="150" step="5" value="0">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs text-gray-300 mb-1">
+                        <span>Posición Inicial Y</span>
+                        <span id="ball-y-val">0px</span>
+                    </div>
+                    <input type="range" id="ball-y-slider" min="-150" max="150" step="5" value="0">
+                </div>
+            </div>
+
+            <!-- Estilo Visual -->
+            <div class="p-3 bg-gray-800/50 rounded-lg border border-gray-700 space-y-4">
+                <h3 class="text-xs font-bold text-fuchsia-400 uppercase tracking-wider">Colores y Efectos</h3>
+
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-300">Primario (Centro/Aro)</span>
+                    <input type="color" id="primary-color" value="#00ffaa">
+                </div>
+                
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-300">Secundario (Borde)</span>
+                    <input type="color" id="secondary-color" value="#0055ff">
+                </div>
+
+                <div>
+                    <div class="flex justify-between text-xs text-gray-300 mb-1">
+                        <span>Velocidad Rotación</span>
+                        <span id="speed-val">1.0x</span>
+                    </div>
+                    <input type="range" id="speed-slider" min="0.2" max="3" step="0.1" value="1.0">
+                </div>
+                
+                <div class="flex flex-col space-y-1">
+                    <span class="text-xs text-gray-300">Animación al Romper (Clásico)</span>
+                    <select id="anim-select" class="w-full">
+                        <option value="dots">🔵 Lluvia de Círculos</option>
+                        <option value="burst">💥 Explosión Clásica</option>
+                        <option value="sparks">✨ Chispas con Gravedad</option>
+                    </select>
+                </div>
+            </div>
+            
+            <button id="preview-btn" class="w-full py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition-all border border-gray-500">
+                👁️ Previsualizar Ajustes
+            </button>
+        </div>
+    </div>
+
+    <div id="export-modal" class="hidden fixed inset-0 bg-black/90 z-50 flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-gray-900 p-8 rounded-2xl border border-gray-700 max-w-sm w-full text-center shadow-2xl">
+            <h2 class="text-2xl font-bold mb-2 text-white">¡Video Terminado!</h2>
+            <p class="text-sm text-gray-400 mb-6">Elige cómo quieres guardar tu grabación.</p>
+            
+            <div id="modal-buttons" class="space-y-3"></div>
+            
+            <div id="conversion-progress" class="hidden mt-6 bg-gray-800 p-4 rounded-lg border border-gray-700">
+                <p class="text-sm text-cyan-400 font-bold mb-2">Convirtiendo a MP4...</p>
+                <div class="w-full bg-gray-700 rounded-full h-2.5">
+                    <div id="progress-bar" class="bg-cyan-400 h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+                <p id="progress-text" class="text-xs text-gray-300 mt-2">Iniciando motor...</p>
+            </div>
+            
+            <button onclick="closeModal()" class="mt-6 text-sm text-gray-500 hover:text-white underline">Cerrar sin guardar</button>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height, cx, cy;
+        let cameraScale = 1.0; 
+
+        const gravity = 0.15;
+        const restitution = 1.015;
+        const maxVelocity = 22; 
+        
+        let ballColorHex = '#ffffff';
+        let initialBallSize = 8;
+        let ballOffsetX = 0;
+        let ballOffsetY = 0;
+        let primaryColorHex = '#00ffaa';
+        let secondaryColorHex = '#0055ff';
+        let speedMultiplier = 1.0;
+        
+        let ringCount = 15;
+        let gapSizeSetting = 35; 
+        let ringSpacing = 30;
+        let baseRadiusSetting = 50;
+        let ringThickness = 6;
+        
+        let shatterStyle = 'dots';
+        let alignmentMode = 'domino'; 
+        let lineCapStyle = 'round'; 
+
+        let globalMode = 'classic';
+        let closedRingRadius = 0;
+        let rainbowHue = 0;
+
+        // Canvas secundario offscreen para renderizar el rastro en O(1) constante sin lag
+        const trailCanvas = document.createElement('canvas');
+        let trailCtx = trailCanvas.getContext('2d');
+        let dpr = Math.max(2, window.devicePixelRatio || 1);
+
+        let isFinishing = false;
+        let currentSeed = Math.floor(Math.random() * 1000000);
+        let ball = null;
+        let rings = [];
+        let particles = [];
+        let brokenRingsCount = 0;
+        let isRunning = false;
+        let isRecording = false;
+        let mediaRecorder;
+        let recordedChunks = [];
+        let animationFrameId;
+        let recordingExt = 'webm';
+
+        const { createFFmpeg, fetchFile } = FFmpeg;
+        let ffmpegInstance = null;
+
+        function seededRandom() {
+            let t = currentSeed += 0x6D2B79F5;
+            t = Math.imul(t ^ t >>> 15, t | 1);
+            t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+            return ((t ^ t >>> 14) >>> 0) / 4294967296;
+        }
+
+        function hexToRgb(hex) {
+            let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : { r: 255, g: 255, b: 255 };
+        }
+
+        class Ball {
+            constructor(startX, startY) {
+                this.x = startX; this.y = startY;
+                const launchAngle = (seededRandom() * Math.PI * 0.6) + Math.PI * 0.2; 
+                const launchSpeed = 3 + seededRandom() * 2;
+                this.vx = Math.cos(launchAngle) * launchSpeed * (seededRandom() > 0.5 ? 1 : -1);
+                this.vy = Math.sin(launchAngle) * launchSpeed; 
+                
+                const referenceSpace = ringSpacing === 0 ? ringThickness * 2 : ringSpacing;
+                this.radius = initialBallSize;
+                this.maxRadius = this.radius + (referenceSpace * 0.6); 
+            }
+            
+            grow() {
+                const referenceSpace = ringSpacing === 0 ? ringThickness * 2 : ringSpacing;
+                this.radius = Math.min(this.radius + (referenceSpace * 0.08), this.maxRadius);
+            }
+            
+            update() {
+                this.vy += gravity;
+                this.x += this.vx; this.y += this.vy;
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                if (speed > maxVelocity) {
+                    this.vx = (this.vx / speed) * maxVelocity;
+                    this.vy = (this.vy / speed) * maxVelocity;
+                }
+            }
+            
+            draw(ctx) {
+                if (globalMode === 'classic') {
+                    ctx.beginPath(); 
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = ballColorHex;
+                    ctx.fill();
+                }
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color, style, customSize) {
+                this.x = x; this.y = y;
+                this.color = color;
+                this.style = style;
+                this.life = 1.0;
+                this.size = customSize || (seededRandom() * 3 + 1);
+                const angle = seededRandom() * Math.PI * 2;
+                const speed = seededRandom() * 5 + 2;
+                
+                if (style === 'sparks') {
+                    this.vx = Math.cos(angle) * (speed * 0.5);
+                    this.vy = -Math.abs(Math.sin(angle) * speed) * 1.5; 
+                    this.decay = seededRandom() * 0.01 + 0.01;
+                } else if (style === 'dots') {
+                    this.vx = 0; this.vy = gravity; this.decay = 0.01; 
+                } else {
+                    this.vx = Math.cos(angle) * speed;
+                    this.vy = Math.sin(angle) * speed;
+                    this.decay = seededRandom() * 0.02 + 0.015;
+                }
+            }
+            update() {
+                if (this.style === 'sparks' || this.style === 'dots') this.vy += gravity * 0.8; 
+                this.x += this.vx; this.y += this.vy; this.life -= this.decay; 
+            }
+            draw(ctx) {
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color; ctx.fill(); ctx.globalAlpha = 1.0;
+            }
+        }
+
+        class Ring {
+            constructor(radius, angle, speed, gapSize, colorIndex) {
+                this.radius = radius; this.angle = angle; this.speed = speed;
+                this.gapSize = gapSize; this.colorIndex = colorIndex;
+                this.alive = true; this.thickness = ringThickness;
+            }
+            
+            getRingColor() {
+                const c1 = hexToRgb(primaryColorHex);
+                const c2 = hexToRgb(secondaryColorHex);
+                const factor = ringCount > 1 ? this.colorIndex / (ringCount - 1) : 0;
+                const r = Math.round(c1.r + factor * (c2.r - c1.r));
+                const g = Math.round(c1.g + factor * (c2.g - c1.g));
+                const b = Math.round(c1.b + factor * (c2.b - c1.b));
+                return `rgb(${r}, ${g}, ${b})`;
+            }
+
+            update() {
+                if (!this.alive) return;
+                this.angle += this.speed * speedMultiplier;
+                this.angle = (this.angle % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+            }
+            
+            draw(ctx, cx, cy) {
+                if (!this.alive) return;
+                const color = this.getRingColor();
+                ctx.beginPath();
+                const startAngle = this.angle + this.gapSize / 2;
+                const endAngle = this.angle + Math.PI * 2 - this.gapSize / 2;
+                ctx.arc(cx, cy, this.radius, startAngle, endAngle);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = this.thickness;
+                ctx.lineCap = lineCapStyle;
+                ctx.stroke();
+            }
+            
+            shatter(cx, cy, spawnParticles) {
+                this.alive = false;
+                if(!spawnParticles) return; 
+                const color = this.getRingColor();
+                if (shatterStyle === 'dots') {
+                    const startAngle = this.angle + this.gapSize / 2;
+                    const arcLength = (Math.PI * 2 - this.gapSize);
+                    const dotCount = Math.floor((this.radius * arcLength) / (this.thickness * 1.8));
+                    for (let i = 0; i <= dotCount; i++) {
+                        const pAngle = startAngle + (i / dotCount) * arcLength;
+                        const px = cx + Math.cos(pAngle) * this.radius;
+                        const py = cy + Math.sin(pAngle) * this.radius;
+                        particles.push(new Particle(px, py, color, shatterStyle, this.thickness / 2));
+                    }
+                } else {
+                    const particleCount = shatterStyle === 'sparks' ? 60 : 40;
+                    for (let i = 0; i < particleCount; i++) {
+                        const pAngle = (i / particleCount) * Math.PI * 2;
+                        let diff = Math.abs(pAngle - this.angle) % (Math.PI * 2);
+                        if (diff > Math.PI) diff = Math.PI * 2 - diff;
+                        if (diff >= this.gapSize / 2) {
+                            const px = cx + Math.cos(pAngle) * this.radius;
+                            const py = cy + Math.sin(pAngle) * this.radius;
+                            particles.push(new Particle(px, py, color, shatterStyle));
+                        }
+                    }
+                }
+            }
+        }
+
+        function setupScene(seed) {
+            currentSeed = seed;
+            cx = width / 2; cy = height / 2;
+            ball = new Ball(cx + ballOffsetX, cy + ballOffsetY);
+            rings = []; particles = [];
+            brokenRingsCount = 0;
+            rainbowHue = 0;
+            isFinishing = false;
+            
+            // Limpiar canvas secundario offscreen
+            if (trailCtx) {
+                trailCtx.save();
+                trailCtx.setTransform(1, 0, 0, 1, 0, 0);
+                trailCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+                trailCtx.restore();
+            }
+
+            if (globalMode === 'closed') {
+                cameraScale = 1.0;
+                closedRingRadius = Math.min(width, height) / 2 - 30;
+                return;
+            }
+
+            const uniformGapSize = gapSizeSetting * (Math.PI / 180);
+            const effectiveStep = ringSpacing === 0 ? ringThickness : ringSpacing;
+            
+            const maxOuterRadius = baseRadiusSetting + ((ringCount - 1) * effectiveStep) + ringThickness;
+            const availableRadius = Math.min(width, height) / 2 - 30; 
+            cameraScale = availableRadius / maxOuterRadius;
+            if (cameraScale > 1.0) cameraScale = 1.0; 
+            
+            for (let i = 0; i < ringCount; i++) {
+                const radius = baseRadiusSetting + (i * effectiveStep);
+                let angle, speed;
+                
+                if (alignmentMode === 'domino') {
+                    angle = -Math.PI / 2; 
+                    const inverseIndex = (ringCount - 1) - i;
+                    speed = 0.008 + (inverseIndex * 0.002);
+                } else if (alignmentMode === 'alternate') {
+                    angle = -Math.PI / 2;
+                    const dir = i % 2 === 0 ? 1 : -1;
+                    speed = (0.01 + (i * 0.0003)) * dir;
+                } else if (alignmentMode === 'sequential') {
+                    angle = -Math.PI / 2;
+                    speed = 0.012;
+                } else {
+                    angle = seededRandom() * Math.PI * 2;
+                    const dir = i % 2 === 0 ? 1 : -1;
+                    speed = (0.008 + seededRandom() * 0.005) * dir;
+                }
+                rings.push(new Ring(radius, angle, speed, uniformGapSize, i));
+            }
+        }
+
+        function checkClosedRingCollision() {
+            if (!ball) return;
+            const dx = ball.x - cx; 
+            const dy = ball.y - cy;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            
+            if (dist + ball.radius >= closedRingRadius) {
+                const nx = dist === 0 ? 0 : dx / dist;
+                const ny = dist === 0 ? -1 : dy / dist;
+                
+                // 1. Rebote
+                const vDotN = ball.vx * nx + ball.vy * ny;
+                if (vDotN > 0) { 
+                    ball.vx = (ball.vx - 2 * vDotN * nx) * restitution;
+                    ball.vy = (ball.vy - 2 * vDotN * ny) * restitution;
+                    
+                    // 2. Crecer en cada choque
+                    ball.radius += 2.5; 
+                }
+
+                // 3. Clamping estricto para evitar rebasar el borde exterior
+                const maxAllowedDist = closedRingRadius - ball.radius;
+                if (maxAllowedDist > 0) {
+                    ball.x = cx + nx * maxAllowedDist;
+                    ball.y = cy + ny * maxAllowedDist;
+                } else {
+                    ball.x = cx;
+                    ball.y = cy; 
+                    ball.radius = closedRingRadius; // Límite máximo
+                }
+            }
+        }
+
+        function checkCollisions(spawnParticles) {
+            if (!ball) return;
+            const dx = ball.x - cx; const dy = ball.y - cy;
+            const distFromCenter = Math.sqrt(dx * dx + dy * dy);
+            
+            let activeRing = rings.find(r => r.alive);
+            if (!activeRing) return;
+
+            if (distFromCenter + ball.radius >= activeRing.radius) {
+                let angleToBall = Math.atan2(dy, dx);
+                if (angleToBall < 0) angleToBall += Math.PI * 2;
+                let diff = Math.abs(angleToBall - activeRing.angle) % (Math.PI * 2);
+                if (diff > Math.PI) diff = Math.PI * 2 - diff;
+
+                if (diff < activeRing.gapSize / 2) {
+                    activeRing.shatter(cx, cy, spawnParticles);
+                    ball.grow(); 
+                    if (alignmentMode === 'domino' && spawnParticles) {
+                        brokenRingsCount++;
+                        if (brokenRingsCount % 3 === 0) rings.forEach(r => { if (r.alive) r.speed *= -1; });
+                    }
+                } else {
+                    const dotProduct = ball.vx * dx + ball.vy * dy;
+                    if (dotProduct > 0) {
+                        const nx = -dx / distFromCenter; const ny = -dy / distFromCenter;
+                        const vDotN = ball.vx * nx + ball.vy * ny;
+                        ball.vx = (ball.vx - 2 * vDotN * nx) * restitution;
+                        ball.vy = (ball.vy - 2 * vDotN * ny) * restitution;
+                        const correctDist = activeRing.radius - ball.radius;
+                        ball.x = cx + (dx / distFromCenter) * correctDist;
+                        ball.y = cy + (dy / distFromCenter) * correctDist;
+                    }
+                }
+            }
+        }
+
+        function startRecording() {
+            recordedChunks = [];
+            const stream = canvas.captureStream(60);
+            
+            let mimeType = 'video/webm; codecs=vp9';
+            recordingExt = 'webm';
+            
+            if (MediaRecorder.isTypeSupported('video/mp4; codecs=h264')) {
+                mimeType = 'video/mp4; codecs=h264';
+                recordingExt = 'mp4';
+            } else if (MediaRecorder.isTypeSupported('video/webm; codecs=h264')) {
+                mimeType = 'video/webm; codecs=h264';
+            }
+            
+            const options = { mimeType: mimeType, videoBitsPerSecond: 15000000 }; 
+            mediaRecorder = new MediaRecorder(stream, options);
+            mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+            
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: mimeType });
+                isRecording = false;
+                
+                document.getElementById('generate-btn').innerHTML = "🎬 Grabar Video";
+                document.getElementById('generate-btn').classList.remove('animate-pulse', 'bg-red-500', 'text-white');
+                document.getElementById('generate-btn').disabled = false;
+                
+                showExportModal(blob, recordingExt);
+            };
+            
+            mediaRecorder.start();
+            isRecording = true;
+        }
+
+        function showExportModal(blob, currentExt) {
+            const modal = document.getElementById('export-modal');
+            const btnContainer = document.getElementById('modal-buttons');
+            document.getElementById('conversion-progress').classList.add('hidden');
+            btnContainer.innerHTML = '';
+            modal.classList.remove('hidden');
+
+            const btnOrig = document.createElement('button');
+            btnOrig.className = 'w-full py-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg font-bold text-white transition-all';
+            btnOrig.innerText = `⬇️ Descargar Original (${currentExt.toUpperCase()})`;
+            btnOrig.onclick = () => { downloadFile(blob, `BallTok_Original.${currentExt}`); closeModal(); };
+            btnContainer.appendChild(btnOrig);
+
+            if (currentExt !== 'mp4') {
+                const btnMp4 = document.createElement('button');
+                btnMp4.className = 'w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 rounded-lg font-bold text-white shadow-lg transition-all';
+                btnMp4.innerText = '🔄 Convertir a MP4 (Integrado)';
+                btnMp4.onclick = () => processFFmpeg(blob);
+                btnContainer.appendChild(btnMp4);
+            }
+        }
+
+        async function processFFmpeg(webmBlob) {
+            document.getElementById('conversion-progress').classList.remove('hidden');
+            const btnContainer = document.getElementById('modal-buttons');
+            btnContainer.style.opacity = '0.3';
+            btnContainer.style.pointerEvents = 'none';
+            
+            try {
+                if (!ffmpegInstance) {
+                    ffmpegInstance = createFFmpeg({ 
+                        log: false, 
+                        corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js' 
+                    });
+                }
+                
+                if (!ffmpegInstance.isLoaded()) {
+                    document.getElementById('progress-text').innerText = "Descargando motor conversor (1 vez)...";
+                    await ffmpegInstance.load();
+                }
+
+                ffmpegInstance.setProgress(({ ratio }) => {
+                    const percent = Math.min(100, Math.max(0, Math.round(ratio * 100)));
+                    document.getElementById('progress-text').innerText = `Procesando: ${percent}%`;
+                    document.getElementById('progress-bar').style.width = `${percent}%`;
+                });
+
+                document.getElementById('progress-text').innerText = "Leyendo archivo original...";
+                ffmpegInstance.FS('writeFile', 'input.webm', await fetchFile(webmBlob));
+                
+                document.getElementById('progress-text').innerText = "Comprimiendo a MP4...";
+                await ffmpegInstance.run('-i', 'input.webm', '-c:v', 'copy', 'output.mp4');
+                
+                const data = ffmpegInstance.FS('readFile', 'output.mp4');
+                const mp4Blob = new Blob([data.buffer], { type: 'video/mp4' });
+                
+                downloadFile(mp4Blob, 'BallTok_Pro_Final.mp4');
+                closeModal();
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('progress-text').innerText = "Error en la conversión. Descarga el original.";
+                document.getElementById('progress-text').classList.add('text-red-400');
+                btnContainer.style.opacity = '1';
+                btnContainer.style.pointerEvents = 'auto';
+            }
+        }
+
+        function downloadFile(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click();
+            setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+        }
+
+        function closeModal() {
+            document.getElementById('export-modal').classList.add('hidden');
+            const btnContainer = document.getElementById('modal-buttons');
+            btnContainer.style.opacity = '1';
+            btnContainer.style.pointerEvents = 'auto';
+        }
+
+        function gameLoop() {
+            if (!isRunning) return;
+
+            if (!isFinishing) {
+                ball.update();
+            }
+
+            let currentRainbow = '';
+            
+            if (globalMode === 'classic') {
+                const activeRing = rings.find(r => r.alive);
+                rings.forEach(ring => {
+                    if (alignmentMode === 'sequential') {
+                        if (ring === activeRing) ring.update();
+                    } else {
+                        ring.update();
+                    }
+                });
+
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    particles[i].update();
+                    if (particles[i].life <= 0) particles.splice(i, 1);
+                }
+                checkCollisions(true);
+            } else {
+                // Modo Aro Cerrado
+                if (!isFinishing) {
+                    rainbowHue = (rainbowHue + 1) % 360;
+                    currentRainbow = `hsl(${rainbowHue}, 100%, 50%)`;
+                    
+                    checkClosedRingCollision();
+                    
+                    // Renderizado acumulativo incremental en el canvas secundario O(1)
+                    trailCtx.save();
+                    trailCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                    trailCtx.translate(cx, cy);
+                    trailCtx.scale(cameraScale, cameraScale);
+                    trailCtx.translate(-cx, -cy);
+
+                    trailCtx.beginPath();
+                    trailCtx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+                    trailCtx.fillStyle = '#05050a';
+                    trailCtx.fill();
+                    trailCtx.strokeStyle = currentRainbow;
+                    trailCtx.lineWidth = 2;
+                    trailCtx.stroke();
+
+                    trailCtx.restore();
+
+                    // Comprobar la condición final de llenado completo
+                    if (ball.radius >= closedRingRadius && !isFinishing) {
+                        isFinishing = true;
+                        // Pausa suave de 500ms para capturar el aro completamente lleno antes de detener la grabación
+                        setTimeout(() => {
+                            if (isRecording && mediaRecorder && mediaRecorder.state !== 'inactive') {
+                                mediaRecorder.stop();
+                            }
+                            isRunning = false;
+                        }, 500);
+                    }
+                }
+            }
+
+            if (isRecording && globalMode === 'classic') {
+                const logicWidth = width / cameraScale;
+                const logicHeight = height / cameraScale;
+                const isOffScreen = Math.abs(ball.x - cx) > (logicWidth / 2) + 50 || 
+                                    Math.abs(ball.y - cy) > (logicHeight / 2) + 50;
+                
+                if (isOffScreen) {
+                    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+                    isRunning = false;
+                    return;
+                }
+            }
+
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = 'rgba(5, 5, 10, 0.3)'; 
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.scale(cameraScale, cameraScale);
+            ctx.translate(-cx, -cy);
+
+            if (globalMode === 'classic') {
+                rings.forEach(ring => ring.draw(ctx, cx, cy));
+                particles.forEach(p => p.draw(ctx));
+                ball.draw(ctx);
+            } else {
+                // Dibujar el rastro acumulado mediante imagen directa O(1) fluida
+                ctx.save();
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.drawImage(trailCanvas, 0, 0);
+                ctx.restore();
+
+                // Dibujar el aro límite exterior
+                ctx.beginPath();
+                ctx.arc(cx, cy, closedRingRadius, 0, Math.PI * 2);
+                ctx.strokeStyle = primaryColorHex;
+                ctx.lineWidth = ringThickness;
+                ctx.stroke();
+
+                // Dibujar la pelota en su posición actual
+                ctx.beginPath();
+                ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#05050a';
+                ctx.fill();
+                ctx.strokeStyle = currentRainbow || `hsl(${rainbowHue}, 100%, 50%)`;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+
+            ctx.restore();
+
+            if (isRunning) {
+                animationFrameId = requestAnimationFrame(gameLoop);
+            }
+        }
+
+        function resize() {
+            dpr = Math.max(2, window.devicePixelRatio || 1); 
+            canvas.width = window.innerWidth * dpr; 
+            canvas.height = window.innerHeight * dpr;
+            canvas.style.width = window.innerWidth + 'px';
+            canvas.style.height = window.innerHeight + 'px';
+            ctx.scale(dpr, dpr);
+            width = window.innerWidth; height = window.innerHeight;
+
+            // Sincronizar dimensiones del canvas secundario
+            trailCanvas.width = canvas.width;
+            trailCanvas.height = canvas.height;
+            trailCtx = trailCanvas.getContext('2d');
+
+            if (isRunning && !isRecording) setupScene(currentSeed);
+        }
+        
+        window.addEventListener('resize', resize);
+        resize();
+
+        document.getElementById('generate-btn').addEventListener('click', () => {
+            if (isRecording) return;
+            const btn = document.getElementById('generate-btn');
+            btn.disabled = true;
+            btn.innerHTML = "🔴 Grabando (HD)...";
+            btn.classList.add('animate-pulse', 'bg-red-500', 'text-white');
+            
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            setupScene(Math.floor(Math.random() * 1000000));
+            startRecording();
+            isRunning = true;
+            gameLoop();
+        });
+
+        document.getElementById('preview-btn').addEventListener('click', () => {
+            if (isRecording) return;
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            setupScene(Math.floor(Math.random() * 1000000));
+            isRunning = true;
+            gameLoop();
+        });
+
+        document.getElementById('global-mode-select').addEventListener('change', (e) => {
+            globalMode = e.target.value;
+            const geoPanel = document.getElementById('geometry-settings');
+            const ballColorContainer = document.getElementById('ball-color-container');
+            
+            if (globalMode === 'closed') {
+                geoPanel.style.display = 'none';
+                ballColorContainer.style.display = 'none'; 
+            } else {
+                geoPanel.style.display = 'block';
+                ballColorContainer.style.display = 'flex'; 
+            }
+            
+            if (isRunning && !isRecording) {
+                if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                setupScene(Math.floor(Math.random() * 1000000));
+                gameLoop();
+            }
+        });
+
+        document.getElementById('alignment-select').addEventListener('change', (e) => alignmentMode = e.target.value);
+        document.getElementById('count-slider').addEventListener('input', (e) => {
+            ringCount = parseInt(e.target.value); document.getElementById('count-val').innerText = ringCount;
+        });
+        document.getElementById('gap-slider').addEventListener('input', (e) => {
+            gapSizeSetting = parseInt(e.target.value); document.getElementById('gap-val').innerText = gapSizeSetting + '°';
+        });
+        document.getElementById('base-radius-slider').addEventListener('input', (e) => {
+            baseRadiusSetting = parseInt(e.target.value); document.getElementById('base-radius-val').innerText = baseRadiusSetting + 'px';
+        });
+        document.getElementById('spacing-slider').addEventListener('input', (e) => {
+            ringSpacing = parseInt(e.target.value); document.getElementById('spacing-val').innerText = ringSpacing === 0 ? '0px (Pegados)' : ringSpacing + 'px';
+        });
+        document.getElementById('thickness-slider').addEventListener('input', (e) => {
+            ringThickness = parseInt(e.target.value); document.getElementById('thickness-val').innerText = ringThickness + 'px';
+        });
+        
+        document.getElementById('ball-size-slider').addEventListener('input', (e) => {
+            initialBallSize = parseInt(e.target.value); 
+            document.getElementById('ball-size-val').innerText = initialBallSize + 'px';
+        });
+        document.getElementById('ball-x-slider').addEventListener('input', (e) => {
+            ballOffsetX = parseInt(e.target.value); document.getElementById('ball-x-val').innerText = ballOffsetX + 'px';
+        });
+        document.getElementById('ball-y-slider').addEventListener('input', (e) => {
+            ballOffsetY = parseInt(e.target.value); document.getElementById('ball-y-val').innerText = ballOffsetY + 'px';
+        });
+
+        document.getElementById('ball-color').addEventListener('input', (e) => ballColorHex = e.target.value);
+        document.getElementById('primary-color').addEventListener('input', (e) => primaryColorHex = e.target.value);
+        document.getElementById('secondary-color').addEventListener('input', (e) => secondaryColorHex = e.target.value);
+        document.getElementById('speed-slider').addEventListener('input', (e) => {
+            speedMultiplier = parseFloat(e.target.value); document.getElementById('speed-val').innerText = speedMultiplier.toFixed(1) + 'x';
+        });
+        document.getElementById('anim-select').addEventListener('change', (e) => shatterStyle = e.target.value);
+        document.getElementById('linecap-select').addEventListener('change', (e) => lineCapStyle = e.target.value);
+
+        ctx.fillStyle = '#05050a'; ctx.fillRect(0, 0, width, height);
+        ctx.font = '20px Inter'; ctx.fillStyle = '#666'; ctx.textAlign = 'center';
+        ctx.fillText('Configura y presiona Grabar Video', width / 2, height / 2);
+    </script>
+</body>
+</html>
